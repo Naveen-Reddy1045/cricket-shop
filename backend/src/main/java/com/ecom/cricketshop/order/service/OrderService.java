@@ -174,39 +174,39 @@ public class OrderService {
                 .getAuthentication()
                 .getName();
 
-        User seller = userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("Seller not found"));
+        User admin = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Admin not found"));
 
-        if (seller.getRole() != Role.SELLER) {
-            throw new BadRequestException("Only sellers can update order status");
+        if (admin.getRole() != Role.ADMIN) {
+            throw new BadRequestException("Only admins can update order status");
         }
 
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
 
-        // Find only this seller's items in the order
-        List<OrderItem> sellerItems = orderItemRepository
-                .findByOrderIdAndProductSellerId(orderId, seller.getId());
+        // Update status on all items in the order
+        List<OrderItem> allItems = orderItemRepository.findByOrderId(orderId);
 
-        if (sellerItems.isEmpty()) {
-            throw new BadRequestException("You have no products in this order");
+        if (allItems.isEmpty()) {
+            throw new BadRequestException("No items found in this order");
         }
 
         // Validate transitions first
-        for (OrderItem item : sellerItems) {
+        for (OrderItem item : allItems) {
             if (!isValidTransition(item.getItemStatus(), status)) {
-                throw new BadRequestException("Cannot transition item from " + 
+                throw new BadRequestException("Cannot transition item from " +
                         (item.getItemStatus() != null ? item.getItemStatus() : OrderStatus.PLACED) + " to " + status);
             }
         }
 
-        // Update status only on seller's own items
-        sellerItems.forEach(item -> item.setItemStatus(status));
-        orderItemRepository.saveAll(sellerItems);
-        
+        // Update status on all items
+        allItems.forEach(item -> item.setItemStatus(status));
+        orderItemRepository.saveAll(allItems);
+
         syncOrderStatus(orderId);
 
-        return mapToSellerOrderResponse(order, seller.getId());
+        return mapToOrderResponse(orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found")));
     }
 
     public OrderResponse updateItemStatus(Long orderId, Long itemId, OrderStatus status) {
@@ -216,11 +216,11 @@ public class OrderService {
                 .getAuthentication()
                 .getName();
 
-        User seller = userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("Seller not found"));
+        User admin = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Admin not found"));
 
-        if (seller.getRole() != Role.SELLER) {
-            throw new BadRequestException("Only sellers can update item status");
+        if (admin.getRole() != Role.ADMIN) {
+            throw new BadRequestException("Only admins can update item status");
         }
 
         Order order = orderRepository.findById(orderId)
@@ -234,23 +234,18 @@ public class OrderService {
             throw new BadRequestException("This item does not belong to the specified order");
         }
 
-        // Verify this seller owns the product in this item
-        if (!item.getProduct().getSeller().getId().equals(seller.getId())) {
-            throw new BadRequestException("You do not own this product");
-        }
-
         // Validate transition
         if (!isValidTransition(item.getItemStatus(), status)) {
-            throw new BadRequestException("Cannot transition item from " + 
+            throw new BadRequestException("Cannot transition item from " +
                     (item.getItemStatus() != null ? item.getItemStatus() : OrderStatus.PLACED) + " to " + status);
         }
 
         item.setItemStatus(status);
         orderItemRepository.save(item);
-        
+
         syncOrderStatus(orderId);
 
-        return mapToSellerOrderResponse(order, seller.getId());
+        return mapToOrderResponse(order);
     }
 
 

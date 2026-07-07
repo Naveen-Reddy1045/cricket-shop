@@ -37,6 +37,8 @@ public class AppConfig {
                             .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
                             .requestMatchers("/auth/**").permitAll()
                             .requestMatchers("/products/**").permitAll()
+                            .requestMatchers("/upload/**").permitAll()
+                            .requestMatchers("/uploads/**").permitAll()
 
                             // Role based endpoints
                             .requestMatchers("/seller/**").hasRole("SELLER")

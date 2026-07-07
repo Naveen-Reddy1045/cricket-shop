@@ -53,11 +53,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String email = claims.getSubject();
             String role = claims.get("role", String.class);
 
-            // 🔥 Fetch user from DB
+
             User user = userRepository.findByEmail(email)
                     .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-            // 🔥 Check if user is active
+
             if (!Boolean.TRUE.equals(user.getIsActive())) {
                 throw new BadRequestException("User account is inactive");
             }

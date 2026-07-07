@@ -30,9 +30,9 @@ public class CricketshopApplication {
 				admin.setIsActive(true);
 				admin.setCreatedAt(LocalDateTime.now());
 				userRepository.save(admin);
-				System.out.println("✅ Admin user created: admin@gmail.com / Admin@123");
+				System.out.println("Admin user created: admin@gmail.com / Admin@123");
 			} else {
-				System.out.println("✅ Admin already exists. Cricket Shop is ready.");
+				System.out.println("Admin already exists. Cricket Shop is ready.");
 			}
 		};
 	}
