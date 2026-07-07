@@ -42,3 +42,8 @@ build/
 .idea/
 .vscode/
 application.properties
+
+### Secrets — never commit these ###
+.env
+.env.local
+.env.production

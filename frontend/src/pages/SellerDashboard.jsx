@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import api from '../api';
-import { Package, Plus, Trash2, Edit, TrendingUp, ShoppingCart, Truck, CheckCircle } from 'lucide-react';
+import { Package, Plus, Trash2, Edit, TrendingUp, ShoppingCart, Upload, ImageIcon, X } from 'lucide-react';
 
 const SellerDashboard = () => {
   const [products, setProducts] = useState([]);
@@ -10,6 +10,10 @@ const SellerDashboard = () => {
   const [formData, setFormData] = useState({ name: '', description: '', price: '', category: '', stock: '', imageUrl: '' });
   const [editingId, setEditingId] = useState(null);
   const [activeTab, setActiveTab] = useState('orders'); // 'orders' or 'products'
+  const [imagePreview, setImagePreview] = useState('');
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const fileInputRef = useRef(null);
 
   const fetchMyProducts = async () => {
     try {
@@ -57,6 +61,49 @@ const SellerDashboard = () => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  const handleImageUpload = async (file) => {
+    if (!file || !file.type.startsWith('image/')) {
+      alert('Please select a valid image file.');
+      return;
+    }
+    setUploadingImage(true);
+    try {
+      const data = new FormData();
+      data.append('file', file);
+      const res = await api.post('/upload/image', data, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      if (res.data?.success) {
+        setFormData(prev => ({ ...prev, imageUrl: res.data.imageUrl }));
+        setImagePreview(res.data.imageUrl);
+      } else {
+        alert('Image upload failed.');
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || 'Image upload failed.');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const handleFileInput = (e) => {
+    const file = e.target.files?.[0];
+    if (file) handleImageUpload(file);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) handleImageUpload(file);
+  };
+
+  const clearImage = () => {
+    setFormData(prev => ({ ...prev, imageUrl: '' }));
+    setImagePreview('');
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -71,6 +118,7 @@ const SellerDashboard = () => {
         await api.post('/seller/products', payload);
       }
       setFormData({ name: '', description: '', price: '', category: '', stock: '', imageUrl: '' });
+      setImagePreview('');
       setEditingId(null);
       fetchMyProducts();
     } catch (err) {
@@ -87,6 +135,7 @@ const SellerDashboard = () => {
       stock: product.stock,
       imageUrl: product.imageUrl || ''
     });
+    setImagePreview(product.imageUrl || '');
     setEditingId(product.id);
     setActiveTab('products');
   };
@@ -102,13 +151,11 @@ const SellerDashboard = () => {
     }
   };
 
-  const updateItemStatus = async (orderId, itemId, status) => {
-    try {
-      await api.put(`/seller/orders/${orderId}/items/${itemId}/status?status=${status}`);
-      fetchMyOrders();
-    } catch (err) {
-      alert(err.response?.data?.message || 'Failed to update status');
-    }
+  const statusColors = {
+    PLACED: { bg: 'rgba(79, 70, 229, 0.15)', color: '#a5b4fc', label: 'Placed' },
+    SHIPPING: { bg: 'rgba(245, 158, 11, 0.15)', color: '#fcd34d', label: 'Shipping' },
+    DELIVERED: { bg: 'rgba(16, 185, 129, 0.15)', color: '#6ee7b7', label: 'Delivered' },
+    CANCELLED: { bg: 'rgba(239, 68, 68, 0.15)', color: '#fca5a5', label: 'Cancelled' },
   };
 
   return (
@@ -181,7 +228,7 @@ const SellerDashboard = () => {
                         <th>Product</th>
                         <th>Qty</th>
                         <th>Amount</th>
-                        <th>Fulfillment Status</th>
+                        <th>Status</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -194,17 +241,25 @@ const SellerDashboard = () => {
                             <td>x{item.quantity}</td>
                             <td style={{ fontWeight: 'bold', color: 'var(--primary)' }}>${item.subtotal?.toFixed(2)}</td>
                             <td>
-                              <select
-                                className="form-input"
-                                style={{ padding: '0.4rem 0.6rem', width: 'auto', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px' }}
-                                value={item.itemStatus || 'PLACED'}
-                                onChange={(e) => updateItemStatus(order.orderId, item.itemId, e.target.value)}
-                              >
-                                <option value="PLACED">Placed</option>
-                                <option value="SHIPPING">Shipped</option>
-                                <option value="DELIVERED">Delivered</option>
-                                <option value="CANCELLED">Cancelled</option>
-                              </select>
+                              {(() => {
+                                const s = item.itemStatus || 'PLACED';
+                                const style = statusColors[s] || statusColors.PLACED;
+                                return (
+                                  <span style={{
+                                    display: 'inline-block',
+                                    padding: '0.3rem 0.75rem',
+                                    borderRadius: '999px',
+                                    fontSize: '0.78rem',
+                                    fontWeight: '600',
+                                    letterSpacing: '0.04em',
+                                    background: style.bg,
+                                    color: style.color,
+                                    border: `1px solid ${style.color}33`,
+                                  }}>
+                                    {style.label}
+                                  </span>
+                                );
+                              })()}
                             </td>
                           </tr>
                         ))
@@ -245,15 +300,96 @@ const SellerDashboard = () => {
                       <input type="text" name="category" required className="form-input" value={formData.category} onChange={handleChange} />
                     </div>
                     <div className="form-group">
-                      <label className="form-label">Image URL</label>
-                      <input type="text" name="imageUrl" className="form-input" placeholder="https://..." value={formData.imageUrl} onChange={handleChange} />
+                      <label className="form-label">Product Image</label>
+
+                      {/* Drop Zone / Preview */}
+                      <div
+                        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+                        onDragLeave={() => setDragOver(false)}
+                        onDrop={handleDrop}
+                        onClick={() => !imagePreview && fileInputRef.current?.click()}
+                        style={{
+                          border: `2px dashed ${dragOver ? 'var(--primary)' : imagePreview ? 'var(--secondary)' : 'rgba(255,255,255,0.15)'}`,
+                          borderRadius: '0.75rem',
+                          background: dragOver ? 'rgba(79,70,229,0.08)' : imagePreview ? 'transparent' : 'rgba(255,255,255,0.03)',
+                          minHeight: '160px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: imagePreview ? 'default' : 'pointer',
+                          position: 'relative',
+                          overflow: 'hidden',
+                          transition: 'all 0.25s ease',
+                        }}
+                      >
+                        {imagePreview ? (
+                          <>
+                            <img
+                              src={imagePreview}
+                              alt="Preview"
+                              style={{ width: '100%', height: '160px', objectFit: 'cover', borderRadius: '0.65rem' }}
+                            />
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); clearImage(); }}
+                              style={{
+                                position: 'absolute', top: '8px', right: '8px',
+                                background: 'rgba(0,0,0,0.6)', border: 'none', borderRadius: '50%',
+                                width: '28px', height: '28px', display: 'flex', alignItems: 'center',
+                                justifyContent: 'center', cursor: 'pointer', color: '#fff',
+                              }}
+                            >
+                              <X size={14} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
+                              style={{
+                                position: 'absolute', bottom: '8px', right: '8px',
+                                background: 'rgba(79,70,229,0.85)', border: 'none', borderRadius: '6px',
+                                padding: '4px 10px', cursor: 'pointer', color: '#fff', fontSize: '0.75rem',
+                                display: 'flex', alignItems: 'center', gap: '4px',
+                              }}
+                            >
+                              <Upload size={12} /> Change
+                            </button>
+                          </>
+                        ) : (
+                          <div style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '1.5rem' }}>
+                            {uploadingImage ? (
+                              <>
+                                <div style={{ marginBottom: '0.5rem', fontSize: '0.9rem' }}>Uploading…</div>
+                                <div style={{
+                                  height: '4px', background: 'var(--border)', borderRadius: '2px', overflow: 'hidden', width: '120px', margin: '0 auto'
+                                }}>
+                                  <div style={{ height: '100%', background: 'var(--primary)', animation: 'slideIn 1s ease infinite', width: '60%' }} />
+                                </div>
+                              </>
+                            ) : (
+                              <>
+                                <ImageIcon size={36} style={{ opacity: 0.4, marginBottom: '0.5rem' }} />
+                                <p style={{ fontSize: '0.875rem', marginBottom: '0.25rem' }}>Drop image here or <span style={{ color: 'var(--primary)', fontWeight: 600 }}>browse</span></p>
+                                <p style={{ fontSize: '0.75rem', opacity: 0.5 }}>PNG, JPG, WEBP up to 10MB</p>
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        style={{ display: 'none' }}
+                        onChange={handleFileInput}
+                      />
                     </div>
                     
-                    <button type="submit" className="btn btn-primary" style={{width: '100%'}}>
+                    <button type="submit" className="btn btn-primary" style={{width: '100%'}} disabled={uploadingImage}>
                       {editingId ? <><Edit size={16}/> Update Product</> : <><Plus size={16}/> Add Product</>}
                     </button>
                     {editingId && (
-                      <button type="button" onClick={() => {setEditingId(null); setFormData({name: '', description: '', price: '', category: '', stock: '', imageUrl: ''});}} className="btn btn-secondary" style={{width: '100%', marginTop: '0.5rem'}}>
+                      <button type="button" onClick={() => {setEditingId(null); setImagePreview(''); setFormData({name: '', description: '', price: '', category: '', stock: '', imageUrl: ''});}} className="btn btn-secondary" style={{width: '100%', marginTop: '0.5rem'}}>
                         Cancel Edit
                       </button>
                     )}

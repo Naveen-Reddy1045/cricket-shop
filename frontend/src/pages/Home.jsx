@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useCallback } from 'react';
 import { ShoppingCart, Search, Filter, Plus, Minus } from 'lucide-react';
 import api from '../api';
 import { AuthContext } from '../context/AuthContext';
@@ -56,10 +56,13 @@ const Home = () => {
     fetchCartItems();
   }, [user]);
 
-  const handleSearch = (e) => {
-    e.preventDefault();
-    fetchProducts(search);
-  };
+  // Auto-filter: debounce 350ms so we don't spam the API on every keystroke
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchProducts(search.trim());
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   const updateCartQuantity = async (productId, quantityChange) => {
     if (!user) {
@@ -99,24 +102,34 @@ const Home = () => {
       <div className="container">
         {/* Search Bar */}
         <div style={{display: 'flex', justifyContent: 'center', marginBottom: '3rem'}}>
-          <form onSubmit={handleSearch} style={{display: 'flex', width: '100%', maxWidth: '600px', gap: '0.5rem'}}>
-            <div style={{position: 'relative', flex: 1}}>
-              <div style={{position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)'}}>
-                <Search size={20} />
-              </div>
-              <input 
-                type="text" 
-                className="form-input" 
-                placeholder="Search products by keyword..." 
-                style={{paddingLeft: '48px', paddingRight: '1rem', height: '100%', fontSize: '1.1rem', borderRadius: '2rem'}}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
+          <div style={{position: 'relative', width: '100%', maxWidth: '600px'}}>
+            <div style={{position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)', pointerEvents: 'none', zIndex: 1}}>
+              <Search size={20} />
             </div>
-            <button type="submit" className="btn btn-primary" style={{borderRadius: '2rem', padding: '0 1.5rem'}}>
-              Search
-            </button>
-          </form>
+            <input
+              type="text"
+              className="form-input"
+              placeholder="Search products by keyword..."
+              style={{paddingLeft: '48px', paddingRight: search ? '40px' : '1rem', fontSize: '1.05rem', borderRadius: '2rem', width: '100%', transition: 'box-shadow 0.2s'}}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                style={{
+                  position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)',
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  color: 'var(--text-secondary)', display: 'flex', alignItems: 'center',
+                  padding: '2px', borderRadius: '50%',
+                }}
+                aria-label="Clear search"
+              >
+                ✕
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Product Grid */}

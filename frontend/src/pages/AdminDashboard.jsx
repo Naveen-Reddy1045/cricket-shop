@@ -39,6 +39,22 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleUpdateOrderStatus = async (orderId, status) => {
+    try {
+      await api.put(`/admin/orders/${orderId}/status?status=${status}`);
+      fetchAdminData();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to update order status');
+    }
+  };
+
+  const statusColors = {
+    PLACED:    { bg: 'rgba(79, 70, 229, 0.15)',  color: '#a5b4fc' },
+    SHIPPING:  { bg: 'rgba(245, 158, 11, 0.15)', color: '#fcd34d' },
+    DELIVERED: { bg: 'rgba(16, 185, 129, 0.15)', color: '#6ee7b7' },
+    CANCELLED: { bg: 'rgba(239, 68, 68, 0.15)',  color: '#fca5a5' },
+  };
+
   return (
     <div className="page-container container">
       <h1 style={{fontSize: '2rem', marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '0.75rem'}}>
@@ -122,7 +138,7 @@ const AdminDashboard = () => {
         <div style={{flex: '1 1 500px'}}>
           <div className="card glass" style={{padding: '1.5rem'}}>
             <h2 style={{fontSize: '1.5rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
-              <Package size={20} /> Recent Orders
+              <Package size={20} /> Order Management
             </h2>
             {loading ? <p>Loading...</p> : (
               <div className="table-container">
@@ -133,17 +149,55 @@ const AdminDashboard = () => {
                       <th>Date</th>
                       <th>Amount</th>
                       <th>Status</th>
+                      <th>Update Status</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {orders.slice(0, 10).map(o => (
-                      <tr key={o.orderId}>
-                        <td>#{o.orderId}</td>
-                        <td>{new Date(o.createdAt).toLocaleDateString()}</td>
-                        <td>${o.totalPrice?.toFixed(2)}</td>
-                        <td>{o.orderStatus}</td>
-                      </tr>
-                    ))}
+                    {orders.slice(0, 10).map(o => {
+                      const currentStatus = o.orderStatus || 'PLACED';
+                      const sc = statusColors[currentStatus] || statusColors.PLACED;
+                      return (
+                        <tr key={o.orderId || o.id}>
+                          <td>#{o.orderId || o.id}</td>
+                          <td>{new Date(o.createdAt).toLocaleDateString()}</td>
+                          <td style={{fontWeight: 'bold', color: 'var(--primary)'}}>${o.totalPrice?.toFixed(2)}</td>
+                          <td>
+                            <span style={{
+                              display: 'inline-block',
+                              padding: '0.25rem 0.65rem',
+                              borderRadius: '999px',
+                              fontSize: '0.75rem',
+                              fontWeight: '600',
+                              background: sc.bg,
+                              color: sc.color,
+                              border: `1px solid ${sc.color}44`,
+                            }}>
+                              {currentStatus}
+                            </span>
+                          </td>
+                          <td>
+                            <select
+                              value={currentStatus}
+                              onChange={(e) => handleUpdateOrderStatus(o.orderId || o.id, e.target.value)}
+                              style={{
+                                padding: '0.35rem 0.6rem',
+                                background: 'rgba(0,0,0,0.3)',
+                                border: '1px solid rgba(255,255,255,0.15)',
+                                borderRadius: '6px',
+                                color: '#fff',
+                                fontSize: '0.82rem',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              <option value="PLACED">Placed</option>
+                              <option value="SHIPPING">Shipping</option>
+                              <option value="DELIVERED">Delivered</option>
+                              <option value="CANCELLED">Cancelled</option>
+                            </select>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
