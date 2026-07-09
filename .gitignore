@@ -41,7 +41,6 @@ build/
 *.iml
 .idea/
 .vscode/
-application.properties
 
 ### Secrets — never commit these ###
 .env
