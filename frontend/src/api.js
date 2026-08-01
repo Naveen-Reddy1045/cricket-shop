@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'https://cricket-shop-production.up.railway.app',
+  baseURL: import.meta.env.VITE_API_URL || 'https://cricket-shop-us0s.onrender.com',
 });
 
 // Request interceptor to attach JWT token to headers
